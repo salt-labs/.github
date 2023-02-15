@@ -1,0 +1,195 @@
+##################################################
+# Name: go.yaml
+# Description: Workflow for Go projects
+##################################################
+
+name: Go
+
+on:
+  pull_request:
+    branches:
+      - $default-branch
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+      - review_requested
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
+
+env:
+  PROJECT: ${{ github.repository }}
+
+  # Is this project an APP or LIB
+  TYPE: LIB
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  go_checks:
+    name: Go v${{ matrix.go }} ${{ matrix.config.go_os }} ${{ matrix.config.go_arch }}
+
+    runs-on: ${{ matrix.config.os }}
+
+    timeout-minutes: 60
+    continue-on-error: false
+
+    strategy:
+      fail-fast: true
+      matrix:
+        go:
+          - "1.14"
+          - "1.15"
+        config:
+          # FreeBSD
+          - os: ubuntu-latest
+            go_os: freebsd
+            go_arch: "386"
+          - os: ubuntu-latest
+            go_os: freebsd
+            go_arch: amd64
+          - os: ubuntu-latest
+            go_os: freebsd
+            go_arch: arm
+          # Linux
+          - os: ubuntu-latest
+            go_os: linux
+            go_arch: "386"
+          - os: ubuntu-latest
+            go_os: linux
+            go_arch: amd64
+          - os: ubuntu-latest
+            go_os: linux
+            go_arch: arm
+          - os: ubuntu-latest
+            go_os: linux
+            go_arch: arm64
+          # macOS
+          - os: ubuntu-latest
+            go_os: darwin
+            go_arch: amd64
+          # OpenBSD
+          - os: ubuntu-latest
+            go_os: openbsd
+            go_arch: "386"
+          - os: ubuntu-latest
+            go_os: openbsd
+            go_arch: amd64
+          - os: ubuntu-latest
+            go_os: openbsd
+            go_arch: arm
+          # Plan9
+          - os: ubuntu-latest
+            go_os: plan9
+            go_arch: "386"
+          - os: ubuntu-latest
+            go_os: plan9
+            go_arch: amd64
+          - os: ubuntu-latest
+            go_os: plan9
+            go_arch: arm
+          # Windows
+          - os: ubuntu-latest
+            go_os: windows
+            go_arch: "386"
+          - os: ubuntu-latest
+            go_os: windows
+            go_arch: amd64
+
+    env:
+      GOPROXY: "https://proxy.golang.org"
+      GO111MODULE: on
+
+    steps:
+      - id: go_setup
+        name: Setup the environment for Go ${{ matrix.go }}
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go }}
+
+      - id: go_env
+        name: Go environment
+        env:
+          GOOS: ${{ matrix.config.go_os }}
+          GOARCH: ${{ matrix.config.go_arch }}
+        run: |
+          export GOOS=$GOOS
+          export GOARCH=$GOARCH
+          go version
+          go env
+
+      - id: checkout_repository
+        name: Checkout repository
+        uses: actions/checkout@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          persist-credentials: true
+
+      - id: cache_artifacts_go
+        name: Cache Go artifacts
+        uses: actions/cache@v2
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.OS }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.OS }}-build-${{ env.cache-name }}-
+            ${{ runner.OS }}-build-
+            ${{ runner.OS }}-
+
+      - id: go_dependencies
+        name: Get the Go dependencies
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          go get -v -t -d ./...
+
+          if [ -f Gopkg.toml ];
+          then
+            curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
+            dep ensure
+          fi
+
+      - id: go_test
+        name: Test the Go package
+        env:
+          GOOS: ${{ matrix.config.go_os }}
+          GOARCH: ${{ matrix.config.go_arch }}
+        run: >
+          GOOS=${GOOS}
+          GOARCH=${GO_ARCH}
+          go test
+          -v
+          ./...
+
+      - id: create_release_dirs
+        name: Create Release directories
+        env:
+          GOOS: ${{ matrix.config.go_os }}
+          GOARCH: ${{ matrix.config.go_arch }}
+        run: |
+          mkdir -p "release/${GOOS}/${GOARCH}/"
+
+      - id: go_build
+        name: Build the Go package
+        env:
+          GOOS: ${{ matrix.config.go_os }}
+          GOARCH: ${{ matrix.config.go_arch }}
+        run: >
+          GOOS=${GOOS}
+          GOARCH=${GOARCH}
+          go build
+          -o "release/${GOOS}/${GOARCH}/"
+          -v
+          ./...
+
+      - id: show_artifacts
+        name: Show build Artifacts
+        shell: pwsh
+        run: |
+          Get-ChildItem -Recurse $env:GITHUB_WORKSPACE
+

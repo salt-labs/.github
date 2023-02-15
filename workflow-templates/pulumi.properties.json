@@ -1,0 +1,6 @@
+{
+  "name": "Pulumi Workflow",
+  "description": "Workflow template for using Pulumi.",
+  "iconName": "salt-icon",
+  "categories": ["Pulumi"]
+}

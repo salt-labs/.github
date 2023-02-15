@@ -1,0 +1,86 @@
+##################################################
+# Name: ossar.yaml
+# Description: Open Source Static Analysis Runner
+##################################################
+
+##################################################
+# NOTES:
+#       This workflow integrates a collection of open source static analysis tools
+#       with GitHub code scanning. For documentation, or to provide feedback, visit
+#       https://github.com/github/ossar-action
+#
+##################################################
+
+name: OSSAR
+
+on:
+
+  push:
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+
+  schedule:
+    - cron: '0 0 * * 0'
+
+jobs:
+
+  ##################################################
+  # Description:
+  #
+  # Runs OSSAR against the project
+  ##################################################
+
+  ossar:
+
+    name: Run OSSAR
+
+    runs-on: ${{ matrix.os }}
+
+    timeout-minutes: 30
+    continue-on-error: false
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          # ubuntu-latest and macos-latest support coming soon
+          - windows-latest
+
+    steps:
+
+      - id: checkout_repository
+        name: Checkout repository
+        uses: actions/checkout@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          persist-credentials: true
+          fetch-depth: 2
+
+      # If this run was triggered by a pull request event, then checkout
+      # the head of the pull request instead of the merge commit.
+      - id: checkout_pr
+        name: Checkout Pull Request
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          git checkout HEAD^2
+
+      # Install dotnet, used by OSSAR
+      - id: install_dotnet
+        name: Install .NET
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: '3.1.201'
+
+      # Run open source static analysis tools
+      - id: run_ossar
+        name: Run OSSAR
+        uses: github/ossar-action@v1
+
+      # Upload results to the Security tab
+      - id: ossar_upload
+        name: OSSAR Upload
+        uses: github/codeql-action/upload-sarif@v1
+        with:
+          sarif_file: ${{ steps.run_ossar.outputs.sarifFile }}

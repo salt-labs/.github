@@ -1,0 +1,85 @@
+##################################################
+# Name: trivy.yaml
+# Description: Workflow for Trivy
+##################################################
+
+##################################################
+# NOTES:
+#       This workflow integrates Trivy with GitHub's code scanning feature.
+#       Trivy is a simple and comprehensive vulnerability scanner from Aqua Security.
+#       Visit https://github.com/aquasecurity/trivy for futher information
+#
+##################################################
+
+name: Trivy
+
+on:
+
+  push:
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+
+  schedule:
+    - cron: '0 0 * * 0'
+
+jobs:
+
+  ##################################################
+  # Description:
+  #
+  # Runs Trivy against the project
+  ##################################################
+
+  trivy:
+
+    name: Run Trivy
+
+    runs-on: ${{ matrix.os }}
+
+    timeout-minutes: 30
+    continue-on-error: false
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+
+    steps:
+
+      - id: checkout_repository
+        name: Checkout repository
+        uses: actions/checkout@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          persist-credentials: true
+
+      ##### Put Manual build steps here if required #####
+
+      #- id: codeql_autobuild
+      #  name: Run Autobuild
+      #  uses: github/codeql-action/autobuild@v1
+
+      ##### Put Manual build steps here if required #####
+
+      - id: trivy_scan
+        name: Trivy Scan
+        uses: aquasecurity/trivy-action@master # TODO: Pin to SHA when finished testing
+        env:
+          WORKSPACE: ""
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SCAN_AUTO_BUILD: true
+        with:
+          output: results.sarif
+          # Scan auto-detects the languages in your project.
+          # To override uncomment the below variable and set the type
+          # type: credscan,go,depscan
+
+      - id: trivy_upload
+        name: Trivy Upload
+        uses: github/codeql-action/upload-sarif@v1
+        with:
+          sarif_file: results.sarif
+

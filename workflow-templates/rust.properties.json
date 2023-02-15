@@ -1,0 +1,7 @@
+{
+  "name": "Rust Workflow",
+  "description": "Workflow for building and testing rustlang projects.",
+  "iconName": "salt-icon",
+  "categories": ["Rust"],
+  "filePatterns": ["*.rs$", "^cargo.toml$"]
+}

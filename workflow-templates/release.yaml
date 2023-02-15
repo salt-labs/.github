@@ -1,0 +1,439 @@
+##################################################
+# Name: release.yaml
+# Description: Workflow to create and publish GitHub releases
+##################################################
+
+name: Release
+
+on:
+
+  # Release
+  # Reference: https://git.io/JJUn5
+  push:
+    branches:
+      - master
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - Cargo.toml
+      - Cargo.lock
+
+  # Pre-Release
+  # Reference: https://git.io/JJfVq
+  pull_request_review:
+    branches:
+      - master
+
+env:
+
+  # Is this project an application or library
+  # Valid Options: APP/LIB
+  PROJECT_TYPE: 'APP'
+
+  # Does this Project contain any Docker files to be published
+  # Valid Options: TRUE/FALSE/AUTO
+  ENABLE_DOCKER: 'AUTO'
+
+  # Does this project contain any Go apps to be released
+  # Valid Options: TRUE/FALSE/AUTO
+  ENABLE_GO: 'AUTO'
+
+  # Does this Project contain any Pulumi infrastructure to be deployed
+  # Valid Options: TRUE/FALSE/AUTO
+  ENABLE_PULUMI: 'AUTO'
+
+  # Does this Project contain any Rust apps to be released
+  # Valid Options: TRUE/FALSE/AUTO
+  ENABLE_RUST: 'AUTO'
+
+defaults:
+
+    run:
+      shell: bash
+
+jobs:
+
+  #########################
+  # Create a GitHub Release
+  #########################
+
+  create_release:
+
+    name: Create GitHub Release
+
+    runs-on: ${{ matrix.os }}
+
+    timeout-minutes: 30
+
+    strategy:
+      fail-fast: true
+      matrix:
+        os:
+          - ubuntu-latest
+
+    steps:
+
+      - id: checkout_repository
+        name: Checkout repository with all history and tags
+        uses: actions/checkout@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_GITHUB_REPOS }}
+        with:
+          fetch-depth: 0
+          submodules: false
+          clean: true
+          persist-credentials: true
+
+      - id: prep_release
+        name: Prepare for Release
+        uses: salt-labs/action-release-prep@master
+        with:
+          loglevel: "INFO"
+          tag_enable: "TRUE"
+          tag_force: "TRUE"
+          git_pretty_format: "* %h %G? %aN - %s"
+          calver_scheme: "YYYY.MM.GEN"
+          calver_split: "."
+          calver_split_mod: "."
+          timezone: "Australia/Sydney"
+
+      - id: create_release_prerelease
+        name: Create Pre-Release
+        if: github.event_name == 'pull_request_review' &&
+            github.event.pull_request.draft == false
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.prep_release.outputs.calver }}
+          release_name: ${{ steps.prep_release.outputs.calver }}
+          body: |
+            # ${{ steps.prep_release.outputs.repo_name }} changelog
+
+            ${{ steps.prep_release.outputs.changelog }}
+          draft: true
+          prerelease: true
+
+      - id: create_release
+        if: github.event_name == 'push' &&
+            contains( github.ref, 'master' )
+        name: Create Release Draft
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.prep_release.outputs.calver }}
+          release_name: ${{ steps.prep_release.outputs.calver }}
+          body: |
+            # ${{ steps.prep_release.outputs.repo_name }} changelog
+
+            ${{ steps.prep_release.outputs.changelog }}
+          draft: true
+          prerelease: false
+
+      # If the environment variables are set at 'AUTO' this
+      # script attempts to figure out the TRUE/FALSE
+      # for you. Otherwise, set TRUE/FALSE manually.
+      - id: define_outputs
+        name: Run the output detection script
+        env:
+          PROJECT_TYPE: ${{ env.PROJECT_TYPE }}
+          ENABLE_DOCKER: ${{ env.ENABLE_DOCKER }}
+          ENABLE_GO: ${{ env.ENABLE_GO }}
+          ENABLE_PULUMI: ${{ env.ENABLE_PULUMI }}
+          ENABLE_RUST: ${{ env.ENABLE_RUST }}
+        shell: pwsh
+        working-directory: "${{ github.workspace }}"
+        run: >
+          ./.github/scripts/outputs.ps1
+          -LogLevel debug
+          -DieHard
+
+    outputs:
+
+      # Prep-Release
+      calver: ${{ steps.prep_release.outputs.calver }}
+      changelog: ${{ steps.prep_release.outputs.changelog }}
+      repo_owner: ${{ steps.prep_release.outputs.repo_owner }}
+      repo_name: ${{ steps.prep_release.outputs.repo_name }}
+
+      # Releases
+      upload_url_prerelease: ${{ steps.create_release_prerelease.outputs.upload_url }}
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+
+      # Publishing conditionals
+      publish_type: ${{ steps.define_outputs.outputs.project_type }}
+      publish_docker: ${{ steps.define_outputs.outputs.publish_docker }}
+      publish_go: ${{ steps.define_outputs.outputs.publish_go }}
+      publish_pulumi: ${{ steps.define_outputs.outputs.publish_pulumi }}
+      publish_rust: ${{ steps.define_outputs.outputs.publish_rust }}
+
+  #########################
+  # Build the Go app
+  #########################
+
+  build_go:
+
+    name: Build Go v${{ matrix.go }} ${{ matrix.config.go_os }} ${{ matrix.config.go_arch }}
+
+    needs:
+      - create_release
+
+    runs-on: ${{ matrix.config.os }}
+
+    timeout-minutes: 30
+
+    # Reference: https://git.io/JfxOX
+    strategy:
+      fail-fast: true
+      matrix:
+        go:
+          - "1.14"
+        config:
+          # FreeBSD
+          - os: ubuntu-latest
+            go_os: freebsd
+            go_arch: "386"
+          - os: ubuntu-latest
+            go_os: freebsd
+            go_arch: amd64
+          - os: ubuntu-latest
+            go_os: freebsd
+            go_arch: arm
+          # Linux
+          - os: ubuntu-latest
+            go_os: linux
+            go_arch: "386"
+          - os: ubuntu-latest
+            go_os: linux
+            go_arch: amd64
+          - os: ubuntu-latest
+            go_os: linux
+            go_arch: arm
+          - os: ubuntu-latest
+            go_os: linux
+            go_arch: arm64
+          # macOS
+          - os: ubuntu-latest
+            go_os: darwin
+            go_arch: "386"
+          - os: ubuntu-latest
+            go_os: darwin
+            go_arch: amd64
+          # OpenBSD
+          - os: ubuntu-latest
+            go_os: openbsd
+            go_arch: "386"
+          - os: ubuntu-latest
+            go_os: openbsd
+            go_arch: amd64
+          - os: ubuntu-latest
+            go_os: openbsd
+            go_arch: arm
+          # Plan9
+          - os: ubuntu-latest
+            go_os: plan9
+            go_arch: "386"
+          - os: ubuntu-latest
+            go_os: plan9
+            go_arch: amd64
+          - os: ubuntu-latest
+            go_os: plan9
+            go_arch: arm
+          # Windows
+          - os: ubuntu-latest
+            go_os: windows
+            go_arch: "386"
+          - os: ubuntu-latest
+            go_os: windows
+            go_arch: amd64
+
+    env:
+
+      GOPROXY: "https://proxy.golang.org"
+      GO111MODULE: on
+
+    # Only build and release binaries if the project is an APP and Go is enabled
+    if: needs.create_release.outputs.project_type == 'APP' &&
+        needs.create_release.outputs.enable_go == 'TRUE'
+
+    steps:
+
+      - id: go_setup
+        name: Setup the environment for Go ${{ matrix.go }}
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go }}
+
+      - id: go_env
+        name: Go environment
+        env:
+          GOOS: ${{ matrix.config.go_os }}
+          GOARCH: ${{ matrix.config.go_arch }}
+        run: |
+          export GOOS=$GOOS
+          export GOARCH=$GOARCH
+          go version
+          go env
+
+      - id: checkout_repository
+        name: Checkout repository
+        uses: actions/checkout@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          persist-credentials: true
+
+      - id: cache_artifacts_go
+        name: Cache Go artifacts
+        uses: actions/cache@v2
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.OS }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.OS }}-build-${{ env.cache-name }}-
+            ${{ runner.OS }}-build-
+            ${{ runner.OS }}-
+
+      - id: go_dependencies
+        name: Get the Go dependencies
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          go get -v -t -d ./...
+
+          if [ -f Gopkg.toml ];
+          then
+            curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
+            dep ensure
+          fi
+
+      - id: go_test
+        name: Test the Go package
+        env:
+          GOOS: ${{ matrix.config.go_os }}
+          GOARCH: ${{ matrix.config.go_arch }}
+        run: >
+          GOOS=${GOOS}
+          GOARCH=${GO_ARCH}
+          go test
+          -v
+          ./...
+
+      - id: create_release_dirs
+        name: Create Release directories
+        env:
+          GOOS: ${{ matrix.config.go_os }}
+          GOARCH: ${{ matrix.config.go_arch }}
+        run: |
+          mkdir -p "release/${GOOS}/${GOARCH}/"
+
+      - id: go_build
+        name: Build the Go package
+        env:
+          GOOS: ${{ matrix.config.go_os }}
+          GOARCH: ${{ matrix.config.go_arch }}
+        run: >
+          GOOS=${GOOS}
+          GOARCH=${GOARCH}
+          go build
+          -o "release/${GOOS}/${GOARCH}/"
+          -v
+          ./...
+
+      - id: show_artifacts
+        name: Show build Artifacts
+        shell: pwsh
+        run: |
+          Get-ChildItem -Recurse $env:GITHUB_WORKSPACE
+
+      - id: archive_go
+        name: Archive artifacts
+        env:
+          GOOS: ${{ matrix.config.go_os }}
+          GOARCH: ${{ matrix.config.go_arch }}
+          NAME: ${{ needs.create_release.outputs.repo_name }}
+        run: >
+          zip
+          --junk-paths
+          "${NAME}-${GOOS}-${GOARCH}.zip"
+          "release/${GOOS}/${GOARCH}/*"
+
+      - id: upload_artifacts
+        name: Upload artifacts
+        uses: actions/upload-artifact@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          name: ${{ needs.create_release.outputs.repo_name }}-${{ matrix.config.go_os}}-${{ matrix.config.go_arch }}.zip
+          path: ${{ needs.create_release.outputs.repo_name }}-${{ matrix.config.go_os}}-${{ matrix.config.go_arch }}.zip
+
+  #########################
+  # Publish Docker Container
+  #########################
+
+  publish_release_docker:
+
+    name: Publish Release to Docker
+
+    needs:
+      - create_release
+      - build_go
+      - build_rust
+
+    runs-on: ${{ matrix.os }}
+
+    timeout-minutes: 30
+
+    strategy:
+      fail-fast: true
+      matrix:
+        os:
+          - ubuntu-latest
+
+    # Only run if there is a Dockerfile in this project
+    if: needs.create_release.outputs.publish_docker == 'TRUE'
+
+    steps:
+
+      - id: checkout_repository
+        name: Checkout repository with all history and tags
+        uses: actions/checkout@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          fetch-depth: 0
+          submodules: false
+          clean: true
+          persist-credentials: true
+
+      - id: checkout_action-kaniko
+        name: Checkout Private Action (action-kaniko)
+        uses: actions/checkout@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_GITHUB_REPOS }}
+        with:
+          repository: salt-labs/action-kaniko
+          ref: refs/heads/master
+          token: ${{ secrets.PAT_GITHUB_REPOS }}
+          path: ./.github/actions/action-kaniko
+          persist-credentials: false
+
+      - id: publish_package_docker
+        name: Publish Package to Docker
+        #uses: salt-labs/action-kaniko@master
+        uses: ./.github/actions/action-kaniko
+        with:
+          loglevel: "INFO"
+          registry: docker.io
+          registry_namespace: ${{ secrets.DOCKERHUB_NAMESPACE }}
+          registry_username: ${{ secrets.DOCKERHUB_USERNAME }}
+          registry_password: ${{ secrets.DOCKERHUB_PASSWORD }}
+          image_tag: ${{ needs.create_release.outputs.calver }}
+          image_tag_extra: true
+          cache_enabled: true
+          extra_args: >
+            --reproducible
+            --cleanup
+            --verbosity info
+            --build-arg VERSION=${{ needs.create_release.outputs.calver }}

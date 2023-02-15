@@ -1,0 +1,7 @@
+{
+  "name": "Kaniko Workflow",
+  "description": "Workflow template for building, testing and pushing containers with Kaniko.",
+  "iconName": "salt-icon",
+  "categories": ["Docker"],
+  "filePatterns": ["^Dockerfile$"]
+}

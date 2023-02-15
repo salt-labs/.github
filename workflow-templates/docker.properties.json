@@ -1,0 +1,7 @@
+{
+  "name": "Docker Workflow",
+  "description": "Workflow template for testing Dockerfiles build.",
+  "iconName": "salt-icon",
+  "categories": ["Docker"],
+  "filePatterns": ["^Dockerfile$"]
+}

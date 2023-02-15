@@ -1,0 +1,5 @@
+{
+  "name": "Greeting Workflow",
+  "description": "Workflow template for greeting new contributors.",
+  "iconName": "salt-icon"
+}

@@ -1,0 +1,7 @@
+{
+  "name": "ShiftLeft Container Scanner Workflow",
+  "description": "Workflow template for ShiftLeft Container Scanner.",
+  "iconName": "salt-icon",
+  "categories": ["Docker"],
+  "filePatterns": ["^Dockerfile$"]
+}

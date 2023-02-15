@@ -1,0 +1,21 @@
+{
+    "name": "Salt Labs Organization Workflow for X",
+    "description": "Salt Labs Organization Workflow for X",
+    "iconName": "salt-labs",
+    "categories": [
+        "Go",
+        "Rust",
+        "Docker",
+        "Shell",
+        "PowerShell",
+        "Releases"
+    ],
+    "filePatterns": [
+        "^*.go$",
+        "^*.rs$",
+        "^Cargo.toml$",
+        "^Dockerfile*",
+        "^*.sh",
+        "*.ps1$"
+    ]
+}

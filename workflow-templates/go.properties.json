@@ -1,0 +1,7 @@
+{
+  "name": "Go Workflow",
+  "description": "Workflow template for building and testing golang projects.",
+  "iconName": "salt-icon",
+  "categories": ["Go"],
+  "filePatterns": ["^go.sum$", "*.mod$", "*.go$"]
+}

@@ -1,0 +1,67 @@
+##################################################
+# Name: validate_policies.yaml
+# Description: Workflow to validate the Policy changes in PRs
+##################################################
+
+name: Validate Policies
+
+on:
+
+  pull_request:
+    branches:
+      - master
+    types:
+      - opened
+      - synchronize
+      - ready_for_review
+
+jobs:
+
+  ##################################################
+  # Description:
+  #
+  # Validates the Policies as code
+  ##################################################
+
+  validate-policies:
+
+    name: Validate Policies as Code
+
+    runs-on: ${{ matrix.os }}
+
+    timeout-minutes: 5
+    continue-on-error: false
+
+    strategy:
+      fail-fast: true
+      matrix:
+        os:
+          - ubuntu-latest
+
+    steps:
+
+      - id: checkout_repository
+        name: Checkout repository
+        uses: actions/checkout@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          persist-credentials: true
+
+      # NOTE: The policies action is not yet public
+      - id: checkout_action-policies-action
+        name: Checkout Private Action (policies-action)
+        uses: actions/checkout@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_GITHUB_REPOS }}
+        with:
+          repository: github/policies-action
+          ref: refs/heads/master
+          token: ${{ secrets.PAT_GITHUB_REPOS }}
+          path: ./.github/actions/validator
+          persist-credentials: false
+
+      - name: Validate Policies
+        uses: .github/actions/validator
+        with:
+          mode: org

@@ -1,0 +1,7 @@
+{
+  "name": "Rust Release Workflow",
+  "description": "Workflow template for releasing rust projects.",
+  "iconName": "salt-icon",
+  "categories": ["Rust"],
+  "filePatterns": ["*.rs$", "^cargo.toml$"]
+}

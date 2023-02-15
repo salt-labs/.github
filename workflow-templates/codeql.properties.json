@@ -1,0 +1,15 @@
+{
+  "name": "GitHub Code Scanning Workflow",
+  "description": "Workflow template for running GitHub Code Scanning.",
+  "iconName": "salt-icon",
+  "categories": [
+    "Go",
+    "Java",
+    "Javascript",
+    "Typescript",
+    "C#",
+    "C",
+    "C++",
+    "Python"
+  ]
+}

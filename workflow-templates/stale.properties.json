@@ -1,0 +1,5 @@
+{
+  "name": "Stale Workflow",
+  "description": "Workflow template for checking stale issues and pull requests.",
+  "iconName": "salt-icon"
+}

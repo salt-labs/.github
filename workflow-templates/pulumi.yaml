@@ -1,0 +1,95 @@
+##################################################
+# Name: pulumi.yaml
+# Description: Runs pulumi on environment branches
+##################################################
+
+name: Pulumi
+
+on:
+  push:
+    branches:
+      - environment/**
+
+  pull_request:
+    branches:
+      - environment/**
+    types:
+      - opened
+      - reopened
+      - edited
+      - assigned
+      - synchronize
+      - review_requested
+
+env:
+  # Pulumi Secrets
+  PULUMI_ACCESS_TOKEN: ${{ secrets.PAT_PULUMI }}
+  COMMENT_ON_PR: 0 # Enable if not using the Pulumi GitHub App
+  PULUMI_ROOT: infra
+
+  # GitHub Secrets
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # AWS Secrets
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+
+  # Azure Secrets
+  ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+  ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+  ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+  ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+  ARM_ENVIRONMENT: ${{ secrets.ARM_ENVIRONMENT }}
+  ARM_LOCATION: ${{ secrets.ARM_LOCATION }}
+
+  # GCP Secrets
+  GOOGLE_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+  GOOGLE_PROJECT: ${{ secrets.GCP_PROJECT_ID }}
+  GOOGLE_REGION: ${{ secrets.GOOGLE_REGION }}
+  GOOGLE_ZONE: ${{ secrets.GOOGLE_ZONE }}
+
+  # Kubernetes
+  KUBECONFIG: ${{ secrets.KUBECONFIG }}
+
+jobs:
+  pulumi_preview:
+    name: Pulumi preview
+
+    runs-on: ${{ matrix.os }}
+
+    timeout-minutes: 30
+
+    strategy:
+      fail-fast: true
+      matrix:
+        os:
+          - ubuntu-latest
+
+    steps:
+      - id: checkout_repository
+        name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 1
+
+      - id: pulumi_preview
+        name: Pulumi preview
+        uses: docker://docker.io/pulumi/actions:latest
+        with:
+          args: preview
+        env:
+          PULUMI_CI: pr
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+        if: github.event_name == 'pull_request'
+
+      - id: pulumi_update
+        name: Pulumi update
+        uses: docker://docker.io/pulumi/actions:latest
+        with:
+          args: update --yes
+        env:
+          PULUMI_CI: pr
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+        if: github.event_name == 'push'
+

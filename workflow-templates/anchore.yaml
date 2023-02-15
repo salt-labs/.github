@@ -1,0 +1,136 @@
+##################################################
+# Name: anchore.yaml
+# Description: Workflow for Anchore Container Scanning
+##################################################
+
+##################################################
+# NOTES:
+#       This workflow checks out code, performs an Anchore container image
+#       vulnerability and compliance scan, and integrates the results with
+#       GitHub Advanced Security code scanning feature.
+#       For more information on the Anchore scan action usage and parameters, see
+#       https://github.com/anchore/scan-action.
+#       For more information on Anchore container image scanning in general, see
+#       https://docs.anchore.com.
+#
+##################################################
+
+name: Anchore
+
+on:
+
+  push:
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+
+  schedule:
+    - cron: '0 0 * * 0'
+
+env:
+
+  # The location of the Dockerfile in this repository
+  DOCKERFILE: "./Dockerfile"
+
+jobs:
+
+  ##################################################
+  # Description:
+  #
+  # Anchore container scanning should only run if there is a Dockerfile present
+  # within the repository. By default, this Workflow assumes the file is named
+  # "Dockerfile" and is present in the root of the repository. This can be
+  # changed with the environment variable defined at the global scope named
+  # "DOCKERFILE"
+  ##################################################
+
+  dockerfile:
+
+    name: Test for Dockerfile
+
+    runs-on: ${{ matrix.os }}
+
+    timeout-minutes: 5
+    continue-on-error: false
+
+    strategy:
+      fail-fast: true
+      matrix:
+        os:
+          - ubuntu-latest
+
+    steps:
+
+      - id: test_dockerfile
+        name: Test for a Dockerfile
+        shell: bash
+        env:
+          DOCKERFILE: ${{ env.DOCKERFILE }}
+        run: |
+          if [ -f "${DOCKERFILE}" ];
+          then
+            echo '::set-output name=dockerfile::TRUE'
+          fi
+
+    outputs:
+
+      enable_docker: ${{ steps.test_dockerfile.outputs.dockerfile }}
+
+  ##################################################
+  # Description:
+  #
+  # Runs Anchore against the project if a Dockerfile is present.
+  ##################################################
+
+  Anchore:
+
+    name: Run Anchore
+
+    needs:
+      - dockerfile
+
+    runs-on: ${{ matrix.os }}
+
+    timeout-minutes: 30
+    continue-on-error: false
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+
+    # Only run if there is a Dockerfile in this project
+    if: ${{ needs.dockerfile.outputs.enable_docker }}
+
+    steps:
+
+      - id: checkout_repository
+        name: Checkout repository
+        uses: actions/checkout@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          persist-credentials: true
+
+      - id: docker_build
+        name: Docker Image Build
+        run: >
+          docker image build
+          --rm
+          --tag local/test:latest
+          .
+
+      - id: anchore_scan
+        name: Anchore Scan
+        uses: anchore/scan-action@master
+        with:
+          image-reference: "local/test:latest"
+          dockerfile-path: "Dockerfile"
+          acs-report-enable: true
+
+      - id: anchore_upload
+        name: Anchore Upload
+        uses: github/codeql-action/upload-sarif@v1
+        with:
+          sarif_file: results.sarif

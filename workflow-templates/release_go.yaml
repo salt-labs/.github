@@ -1,0 +1,520 @@
+##################################################
+# Name: release_go.yaml
+# Description: Workflow for releasing golang projects
+##################################################
+
+name: Go Release
+
+on:
+  # Treating approved PRs into trunk as "pre-releases"
+  pull_request_review:
+    branches:
+      - $default-branch
+    types:
+      - submitted
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
+  # Treating merged PRs into trunk as "releases"
+  push:
+    branches:
+      - $default-branch
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
+
+env:
+  PROJECT: ${{ github.repository }}
+
+  # Is this project an APP or LIB
+  TYPE: "LIB"
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  #########################
+  # Create a GitHub Release
+  #########################
+
+  create_release:
+    name: Create GitHub Release
+
+    runs-on: ${{ matrix.os }}
+
+    timeout-minutes: 30
+    continue-on-error: false
+
+    strategy:
+      fail-fast: true
+      matrix:
+        os:
+          - ubuntu-latest
+
+    steps:
+      - id: checkout_repository
+        name: Checkout repository with all history and tags
+        uses: actions/checkout@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_GITHUB_REPOS }}
+        with:
+          fetch-depth: 0
+          submodules: false
+          clean: true
+          persist-credentials: true
+
+      - id: prep_release
+        name: Prepare for Release
+        uses: salt-labs/action-release-prep@trunk
+        with:
+          loglevel: "INFO"
+          tag_enable: "TRUE"
+          tag_force: "FALSE"
+          changelog_enable: "TRUE"
+          git_pretty_format: "* %h %G? %aN - %s"
+          calver_enable: "TRUE"
+          calver_scheme: "YYYY.MM.GEN"
+          calver_split: "."
+          calver_split_mod: "."
+          calver_timezone: "Australia/Sydney"
+          semver_enable: "TRUE"
+          semver_type: "patch"
+          semver_prefix: "v"
+
+      - id: create_release_prerelease
+        name: Create Pre-Release
+        if: github.event.review.state == 'approved'
+        uses: ./
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.prep_release.outputs.calver }}
+          release_name: ${{ steps.prep_release.outputs.calver }}
+          body: |
+            # ${{ steps.prep_release.outputs.repo_name }} changelog
+
+            ${{ steps.prep_release.outputs.changelog }}
+
+          draft: false
+          prerelease: true
+
+      - id: create_release
+        if: github.event_name == 'push' && contains( github.ref, 'trunk' )
+        name: Create Release Draft
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.prep_release.outputs.calver }}
+          release_name: ${{ steps.prep_release.outputs.calver }}
+          body: |
+            # ${{ steps.prep_release.outputs.repo_name }} changelog
+
+            ${{ steps.prep_release.outputs.changelog }}
+
+          draft: true
+          prerelease: false
+
+      - id: test_dockerfile
+        name: Test for a Dockerfile
+        shell: bash
+        run: |
+          if [ -f "Dockerfile" ];
+          then
+            echo '::set-output name=publish::TRUE'
+          fi
+
+      - id: app_or_lib
+        name: Application or Library
+        shell: pwsh
+        env:
+          TYPE: ${{ env.TYPE }}
+        run: |
+          Write-Output "Project Type: $TYPE"
+          Write-Output "::set-output name=project_type::$TYPE"
+
+    outputs:
+      # Prep-Release
+      calver: ${{ steps.prep_release.outputs.calver }}
+      semver: ${{ steps.prep_release.outputs.semver }}
+      changelog: ${{ steps.prep_release.outputs.changelog }}
+      repo_owner: ${{ steps.prep_release.outputs.repo_owner }}
+      repo_name: ${{ steps.prep_release.outputs.repo_name }}
+
+      # Pre-Release
+      upload_url_prerelease: ${{ steps.create_release_prerelease.outputs.upload_url }}
+
+      # Release
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+
+      # Container
+      publish_container: ${{ steps.test_dockerfile.outputs.publish }}
+
+  #########################
+  # Build the Go app
+  #########################
+
+  build_go:
+    name: Build Go v${{ matrix.go }} ${{ matrix.config.go_os }} ${{ matrix.config.go_arch }}
+
+    needs:
+      - create_release
+
+    runs-on: ${{ matrix.config.os }}
+
+    timeout-minutes: 60
+    continue-on-error: false
+
+    # Reference: https://git.io/JfxOX
+    strategy:
+      fail-fast: true
+      matrix:
+        go:
+          - "1.15"
+        config:
+          # FreeBSD
+          - os: ubuntu-latest
+            go_os: freebsd
+            go_arch: "386"
+          - os: ubuntu-latest
+            go_os: freebsd
+            go_arch: amd64
+          - os: ubuntu-latest
+            go_os: freebsd
+            go_arch: arm
+          # Linux
+          - os: ubuntu-latest
+            go_os: linux
+            go_arch: "386"
+          - os: ubuntu-latest
+            go_os: linux
+            go_arch: amd64
+          - os: ubuntu-latest
+            go_os: linux
+            go_arch: arm
+          - os: ubuntu-latest
+            go_os: linux
+            go_arch: arm64
+          # macOS
+          - os: ubuntu-latest
+            go_os: darwin
+            go_arch: amd64
+          # OpenBSD
+          - os: ubuntu-latest
+            go_os: openbsd
+            go_arch: "386"
+          - os: ubuntu-latest
+            go_os: openbsd
+            go_arch: amd64
+          - os: ubuntu-latest
+            go_os: openbsd
+            go_arch: arm
+          # Plan9
+          - os: ubuntu-latest
+            go_os: plan9
+            go_arch: "386"
+          - os: ubuntu-latest
+            go_os: plan9
+            go_arch: amd64
+          - os: ubuntu-latest
+            go_os: plan9
+            go_arch: arm
+          # Windows
+          - os: ubuntu-latest
+            go_os: windows
+            go_arch: "386"
+          - os: ubuntu-latest
+            go_os: windows
+            go_arch: amd64
+
+    env:
+      GOPROXY: "https://proxy.golang.org"
+      GO111MODULE: on
+
+    # Only build and release binaries if the project is an APP
+    if: ${{ needs.create_release.outputs.project_type == 'APP' }}
+
+    steps:
+      - id: setup_go
+        name: Setup the environment for Go ${{ matrix.go }}
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go }}
+
+      - id: setup_go_env
+        name: Setup Go environment
+        env:
+          GOOS: ${{ matrix.config.go_os }}
+          GOARCH: ${{ matrix.config.go_arch }}
+        run: |
+          export GOOS=$GOOS
+          export GOARCH=$GOARCH
+          go version
+          go env
+
+      - id: checkout_repository
+        name: Checkout repository
+        uses: actions/checkout@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          persist-credentials: true
+
+      - id: cache_artifacts_go
+        name: Cache Go artifacts
+        uses: actions/cache@v2
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.OS }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.OS }}-build-${{ env.cache-name }}-
+            ${{ runner.OS }}-build-
+            ${{ runner.OS }}-
+
+      - id: go_dependencies
+        name: Get the Go dependencies
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          go get -v -t -d ./...
+
+          if [ -f Gopkg.toml ];
+          then
+            curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
+            dep ensure
+          fi
+
+      - id: go_test
+        name: Test the Go package
+        env:
+          GOOS: ${{ matrix.config.go_os }}
+          GOARCH: ${{ matrix.config.go_arch }}
+        run: >
+          GOOS=${GOOS}
+          GOARCH=${GO_ARCH}
+          go test
+          -v
+          ./...
+
+      - id: create_release_dirs
+        name: Create Release directories
+        env:
+          GOOS: ${{ matrix.config.go_os }}
+          GOARCH: ${{ matrix.config.go_arch }}
+        run: |
+          mkdir -p "release/${GOOS}/${GOARCH}/"
+
+      - id: go_build
+        name: Build the Go package
+        env:
+          GOOS: ${{ matrix.config.go_os }}
+          GOARCH: ${{ matrix.config.go_arch }}
+        run: >
+          GOOS=${GOOS}
+          GOARCH=${GOARCH}
+          go build
+          -o "release/${GOOS}/${GOARCH}/"
+          -v
+          ./...
+
+      - id: archive_go
+        name: Archive artifacts
+        env:
+          GOOS: ${{ matrix.config.go_os }}
+          GOARCH: ${{ matrix.config.go_arch }}
+          NAME: ${{ needs.create_release.outputs.repo_name }}
+        run: >
+          zip
+            --junk-paths
+            "${NAME}-${GOOS}-${GOARCH}.zip"
+            "release/${GOOS}/${GOARCH}/*"
+
+      - id: show_artifacts
+        name: Show build Artifacts
+        shell: pwsh
+        run: |
+          Get-ChildItem -Recurse $env:GITHUB_WORKSPACE
+
+      - id: upload_artifacts
+        name: Upload artifacts
+        uses: actions/upload-artifact@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          name: ${{ needs.create_release.outputs.repo_name }}-${{ matrix.config.go_os}}-${{ matrix.config.go_arch }}.zip
+          path: ${{ needs.create_release.outputs.repo_name }}-${{ matrix.config.go_os}}-${{ matrix.config.go_arch }}.zip
+
+  #########################
+  # Publish Container
+  #########################
+
+  release_publish_container:
+    name: Publish Release to OCI Container Registry
+
+    needs:
+      - create_release
+
+    runs-on: ${{ matrix.os }}
+
+    timeout-minutes: 30
+    continue-on-error: false
+
+    strategy:
+      fail-fast: true
+      matrix:
+        os:
+          - ubuntu-latest
+
+    # Only run if there is a Dockerfile in this project
+    if: ${{ needs.create_release.outputs.publish_container }}
+
+    steps:
+      - id: checkout_repository
+        name: Checkout repository with all history and tags
+        uses: actions/checkout@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          fetch-depth: 0
+          submodules: false
+          clean: true
+          persist-credentials: true
+
+      - id: publish_package_container
+        name: Publish Package to Container Registry
+        #uses: salt-labs/action-kaniko@trunk
+        uses: docker://ghcr.io/salt-labs/action-kaniko:stable
+        with:
+          loglevel: "INFO"
+          registry: ghcr.io
+          registry_namespace: ${{ env.REGISTRY_NAMESPACE }}
+          registry_username: ${{ env.REGISTRY_USERNAME }}
+          registry_password: ${{ env.REGISTRY_PASSWORD }}
+          image_tag: ${{ needs.create_release.outputs.calver }}
+          image_tag_extra: true
+          cache_enabled: false
+          extra_args: >
+            --reproducible
+            --cleanup
+            --verbosity info
+            --build-arg VERSION=${{ needs.create_release.outputs.calver }}
+
+  #########################
+  # Publish the Go app (GitHub Release)
+  #########################
+
+  release_publish_github:
+    name: Publish Go v${{ matrix.go }} ${{ matrix.config.go_os }} ${{ matrix.config.go_arch }}
+
+    needs:
+      - create_release
+      - build_go
+
+    runs-on: ${{ matrix.config.os }}
+
+    timeout-minutes: 60
+    continue-on-error: false
+
+    # Reference: https://git.io/JfxOX
+    strategy:
+      fail-fast: true
+      matrix:
+        go:
+          - "1.15"
+        config:
+          # FreeBSD
+          - os: ubuntu-latest
+            go_os: freebsd
+            go_arch: "386"
+          - os: ubuntu-latest
+            go_os: freebsd
+            go_arch: amd64
+          - os: ubuntu-latest
+            go_os: freebsd
+            go_arch: arm
+          # Linux
+          - os: ubuntu-latest
+            go_os: linux
+            go_arch: "386"
+          - os: ubuntu-latest
+            go_os: linux
+            go_arch: amd64
+          - os: ubuntu-latest
+            go_os: linux
+            go_arch: arm
+          - os: ubuntu-latest
+            go_os: linux
+            go_arch: arm64
+          # macOS
+          - os: ubuntu-latest
+            go_os: darwin
+            go_arch: amd64
+          # OpenBSD
+          - os: ubuntu-latest
+            go_os: openbsd
+            go_arch: "386"
+          - os: ubuntu-latest
+            go_os: openbsd
+            go_arch: amd64
+          - os: ubuntu-latest
+            go_os: openbsd
+            go_arch: arm
+          # Plan9
+          - os: ubuntu-latest
+            go_os: plan9
+            go_arch: "386"
+          - os: ubuntu-latest
+            go_os: plan9
+            go_arch: amd64
+          - os: ubuntu-latest
+            go_os: plan9
+            go_arch: arm
+          # Windows
+          - os: ubuntu-latest
+            go_os: windows
+            go_arch: "386"
+          - os: ubuntu-latest
+            go_os: windows
+            go_arch: amd64
+
+    # Only build and release binaries if the project is an APP not LIB
+    if: ${{ needs.create_release.outputs.project_type == 'APP' }}
+
+    steps:
+      - id: fetch_artifact
+        name: Fetch the Build artifact to upload
+        uses: actions/download-artifact@v2
+        with:
+          name: ${{ needs.create_release.outputs.repo_name }}-${{ matrix.config.go_os}}-${{ matrix.config.go_arch }}.zip
+
+      - id: show_artifacts
+        name: Show build Artifacts
+        shell: pwsh
+        run: |
+          Get-ChildItem -Recurse $env:GITHUB_WORKSPACE
+
+      - id: upload_release_artifact_github_prerelease
+        name: Upload Artifact to Pre-Release
+        if: github.event.review.state == 'approved'
+        uses: actions/upload-release-asset@v1.0.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create_release.outputs.upload_url_prerelease }}
+          asset_path: ${{ needs.create_release.outputs.repo_name }}-${{ matrix.config.go_os}}-${{ matrix.config.go_arch }}.zip
+          asset_name: ${{ needs.create_release.outputs.repo_name }}-${{ matrix.config.go_os}}-${{ matrix.config.go_arch }}.zip
+          asset_content_type: application/zip
+
+      - id: upload_release_artifact_github
+        name: Upload Artifact to Release
+        if: github.event_name == 'push' && contains( github.ref, 'trunk' )
+        uses: actions/upload-release-asset@v1.0.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_path: ${{ needs.create_release.outputs.repo_name }}-${{ matrix.config.go_os}}-${{ matrix.config.go_arch }}.zip
+          asset_name: ${{ needs.create_release.outputs.repo_name }}-${{ matrix.config.go_os}}-${{ matrix.config.go_arch }}.zip
+          asset_content_type: application/zip
+

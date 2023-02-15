@@ -1,0 +1,221 @@
+##################################################
+# Name: waSCC.yaml
+# Description: Workflow for waSCC Actors and Capabilities
+##################################################
+
+name: Rust
+
+on:
+
+  push:
+    paths:
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "*.rs"
+      - "**/*.rs"
+
+env:
+
+  CARGO_TERM_COLOR: always
+
+defaults:
+
+  run:
+    shell: bash
+
+jobs:
+
+  ##################################################
+  # Description:
+  #
+  # As not all Rust projects need to use Cargo this job
+  # determines if this is a Rust project using Cargo before
+  # running a series of checks which are tailored for
+  # projects using the Cargo package manager.
+  ##################################################
+
+  cargo:
+
+    name: Test for Cargo
+
+    runs-on: ${{ matrix.os }}
+
+    timeout-minutes: 5
+    continue-on-error: false
+
+    strategy:
+      fail-fast: true
+      matrix:
+        os:
+          - ubuntu-latest
+
+    steps:
+
+      - id: test_cargo
+        name: Test for cargo.toml
+        shell: bash
+        run: |
+          if [ -f "Cargo.toml" ];
+          then
+            echo "Cargo project detected"
+            echo '::set-output name=cargo_enabled::TRUE'
+          else
+            echo "No Cargo project was detected"
+          fi
+
+    outputs:
+
+      cargo_enabled: ${{ steps.test_cargo.outputs.cargo_enabled }}
+
+  ##################################################
+  # Description:
+  #
+  # Runs a series of checks against a Rust project that uses cargo
+  ##################################################
+
+  cargo_checks:
+
+    name: Run Cargo checks for ${{ matrix.config.target }}
+
+    needs:
+      - cargo
+
+    runs-on: ${{ matrix.config.os }}
+
+    timeout-minutes: 60
+
+    strategy:
+      fail-fast: true
+      matrix:
+        config:
+          # Linux
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            toolchain: stable
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            toolchain: stable
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            toolchain: stable
+          # macOS
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            toolchain: stable
+          # Windows
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            toolchain: stable
+          - os: windows-latest
+            target: x86_64-pc-windows-gnu
+            toolchain: stable
+
+    # Only run if this is a Cargo project
+    if: ${{ needs.cargo.outputs.cargo_enabled }}
+
+    steps:
+
+      - id: setup_rust
+        name: Setup the Rust environment
+        uses: actions-rs/toolchain@v1
+        with:
+          target: ${{ matrix.config.target }}
+          toolchain: ${{ matrix.config.toolchain }}
+          default: true
+
+      - id: setup_rust_arm64
+        name: Setup the Rust environment for ARM64
+        if: matrix.config.target == 'aarch64-unknown-linux-gnu' && matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt install gcc-multilib
+
+      - id: checkout_repository
+        name: Checkout repository
+        uses: actions/checkout@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          persist-credentials: true
+
+      - id: cache_artifacts_cargo_registry
+        name: Cache Cargo registry
+        uses: actions/cache@v2
+        with:
+          path: ~/.cargo/registry
+          key: ${{ matrix.config.target }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ matrix.config.target }}-cargo-registry-
+
+      - id: cache_artifacts_cargo_index
+        name: Cache Cargo index
+        uses: actions/cache@v2
+        with:
+          path: ~/.cargo/git
+          key: ${{ matrix.config.target }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ matrix.config.target }}-cargo-index-
+
+      - id: cache_artifacts_cargo_target
+        name: Cache Cargo build
+        uses: actions/cache@v2
+        with:
+          path: target/release
+          key: ${{ matrix.config.target }}-target-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ matrix.config.target }}-target-
+
+      - id: cargo_check
+        name: Run Cargo check
+        run: >
+          cargo --version
+          &&
+          cargo check
+          --verbose
+          --target ${{ matrix.config.target }}
+
+      - id: cargo_fmt_add
+        name: Add Cargo format
+        run: >
+          rustup component add rustfmt
+          --target ${{ matrix.config.target }}
+          --toolchain ${{ matrix.config.toolchain }}
+          &&
+          rustup component list
+          --target ${{ matrix.config.target }}
+
+      - id: cargo_fmt_run
+        name: Run Cargo format
+        run: >
+          cargo fmt --version
+          &&
+          cargo fmt --all --
+          --check
+          --target ${{ matrix.config.target }}
+
+      - id: cargo_clippy_add
+        name: Add Cargo clippy
+        run: >
+          rustup component add clippy
+          --target ${{ matrix.config.target }}
+          --toolchain ${{ matrix.config.toolchain }}
+          &&
+          rustup component list
+          --target ${{ matrix.config.target }}
+
+      - id: cargo_clippy_run
+        name: Run Cargo clippy
+        run: >
+          cargo clippy --version
+          &&
+          cargo clippy --all --all-features --
+          -D warnings
+          --target ${{ matrix.config.target }}
+
+      - id: cargo_test
+        name: Run Cargo tests
+        run: >
+          cargo --version
+          &&
+          cargo test
+          --verbose
+          --target ${{ matrix.config.target }}

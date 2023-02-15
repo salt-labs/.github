@@ -1,0 +1,7 @@
+{
+  "name": "Go Release Workflow",
+  "description": "Workflow template for releasing golang projects.",
+  "iconName": "salt-icon",
+  "categories": ["Go"],
+  "filePatterns": ["^go.sum$", "*.mod$", "*.go$"]
+}

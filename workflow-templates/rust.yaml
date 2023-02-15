@@ -1,0 +1,231 @@
+##################################################
+# Name: rust.yml
+# Description: Workflow for Rust projects
+##################################################
+
+name: Rust
+
+on:
+  push:
+    branches:
+      - $default-branch
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
+
+  pull_request:
+    branches:
+      - $default-branch
+      - release/*
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+      - review_requested
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
+
+env:
+  CARGO_TERM_COLOR: always
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  #########################
+  # Test the package for linting
+  # and ensure formatted correctly
+  #########################
+
+  cargo_check:
+    name: Cargo Check
+
+    runs-on: ${{ matrix.config.os }}
+
+    timeout-minutes: 60
+    continue-on-error: false
+
+    strategy:
+      fail-fast: true
+      matrix:
+        config:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            toolchain: stable
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            toolchain: stable
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            toolchain: stable
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            toolchain: stable
+          #- target: aarch64-unknown-linux-gnu
+          #  os: ubuntu-latest
+          #  toolchain: stable
+        #exclude:
+
+    steps:
+      - id: setup_rust
+        name: Setup the Rust environment for Rust ${{ matrix.config.target }}
+        uses: actions-rs/toolchain@v1
+        with:
+          target: ${{ matrix.config.target }}
+          toolchain: ${{ matrix.config.toolchain }}
+          default: true
+
+      - id: setup_rust_arm64
+        name: Setup the Rust environment for ${{ matrix.config.target }} on ${{ matrix.config.os }}
+        if: matrix.config.target == 'aarch64-unknown-linux-gnu' && matrix.config.os == 'ubuntu-latest'
+        run: |
+          sudo apt install gcc-multilib
+
+      - id: checkout_repository
+        name: Checkout repository
+        uses: actions/checkout@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          persist-credentials: true
+
+      - id: cache_artifacts_cargo_registry
+        name: Cache Cargo registry artifacts for ${{ matrix.config.target }}
+        uses: actions/cache@v2
+        with:
+          path: ~/.cargo/registry
+          key: ${{ matrix.config.target }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ matrix.config.target }}-cargo-registry-
+
+      - id: cache_artifacts_cargo_index
+        name: Cache Cargo index artifacts for ${{ matrix.config.target }}
+        uses: actions/cache@v2
+        with:
+          path: ~/.cargo/git
+          key: ${{ matrix.config.target }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ matrix.config.target }}-cargo-index-
+
+      - id: cache_artifacts_cargo_target
+        name: Cache Cargo build artifacts for ${{ matrix.config.target }}
+        uses: actions/cache@v2
+        with:
+          path: target/release
+          key: ${{ matrix.config.target }}-target-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ matrix.config.target }}-target-
+
+      - id: cargo_check
+        name: Run Cargo check
+        run: |
+          cargo --version
+          cargo check --verbose
+
+      - id: cargo_fmt
+        name: Run Cargo format
+        run: |
+          rustup component add rustfmt
+          rustup component list --toolchain ${{ matrix.config.toolchain }}
+          cargo fmt --version
+          cargo fmt --all -- --check
+
+      - id: cargo_clippy
+        name: Run Cargo clippy
+        run: |
+          rustup component add clippy
+          rustup component list --toolchain ${{ matrix.config.toolchain }}
+          cargo clippy --version
+          cargo clippy --all --all-features -- -D warnings
+
+  #########################
+  # Run Unit Tests
+  #########################
+
+  cargo_test:
+    name: Cargo Test
+
+    runs-on: ${{ matrix.os }}
+
+    timeout-minutes: 60
+    continue-on-error: false
+
+    strategy:
+      fail-fast: true
+      matrix:
+        config:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            toolchain: stable
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            toolchain: stable
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            toolchain: stable
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            toolchain: stable
+          #- target: aarch64-unknown-linux-gnu
+          #  os: ubuntu-latest
+          #  toolchain: stable
+        #exclude:
+
+    steps:
+      - id: setup_rust
+        name: Setup the Rust environment for Rust ${{ matrix.config.target }}
+        uses: actions-rs/toolchain@v1
+        with:
+          target: ${{ matrix.config.target }}
+          toolchain: ${{ matrix.config.toolchain }}
+          default: true
+
+      - id: setup_rust_arm64
+        name: Setup the Rust environment for ${{ matrix.config.target }} on ${{ matrix.config.os }}
+        if: matrix.config.target == 'aarch64-unknown-linux-gnu' && matrix.config.os == 'ubuntu-latest'
+        run: |
+          sudo apt install gcc-multilib
+
+      - id: checkout_repository
+        name: Checkout repository
+        uses: actions/checkout@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          persist-credentials: true
+
+      - id: cache_artifacts_cargo_registry
+        name: Cache Cargo registry artifacts for ${{ matrix.config.target }}
+        uses: actions/cache@v2
+        with:
+          path: ~/.cargo/registry
+          key: ${{ matrix.config.target }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ matrix.config.target }}-cargo-registry-
+
+      - id: cache_artifacts_cargo_index
+        name: Cache Cargo index artifacts for ${{ matrix.config.target }}
+        uses: actions/cache@v2
+        with:
+          path: ~/.cargo/git
+          key: ${{ matrix.config.target }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ matrix.config.target }}-cargo-index-
+
+      - id: cache_artifacts_cargo_target
+        name: Cache Cargo build artifacts for ${{ matrix.config.target }}
+        uses: actions/cache@v2
+        with:
+          path: target/release
+          key: ${{ matrix.config.target }}-target-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ matrix.config.target }}-target-
+
+      - id: cargo_test
+        name: Run Cargo tests
+        run: |
+          cargo --version
+          cargo test --verbose

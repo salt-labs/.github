@@ -1,0 +1,5 @@
+{
+  "name": "GitHub Super Linter Workflow",
+  "description": "Workflow template for running GitHub Super Linter.",
+  "iconName": "salt-icon"
+}

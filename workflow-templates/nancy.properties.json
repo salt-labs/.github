@@ -1,0 +1,7 @@
+{
+  "name": "SonarType Nancy Workflow",
+  "description": "Workflow template for running SonarType Nancy.",
+  "iconName": "salt-icon",
+  "categories": ["Go"],
+  "filePatterns": ["^go.sum$", "*.mod$", "*.go$"]
+}

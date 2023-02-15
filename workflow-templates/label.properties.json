@@ -1,0 +1,5 @@
+{
+  "name": "Label Workflow",
+  "description": "Workflow template for labelling pull-requests.",
+  "iconName": "salt-icon"
+}
