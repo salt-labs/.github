@@ -1,8 +1,9 @@
 {
-    "name": "Salt Labs Organization Workflow for X",
-    "description": "Salt Labs Organization Workflow for X",
+    "name": "MDBook Workflow",
+    "description": "Salt Labs Organization Workflow for MDBook",
     "iconName": "salt-labs",
     "categories": [
+        "Markdown",
         "Go",
         "Rust",
         "Docker",
@@ -11,6 +12,7 @@
         "Releases"
     ],
     "filePatterns": [
+        "^*.md$",
         "^*.go$",
         "^*.rs$",
         "^Cargo.toml$",

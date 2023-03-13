@@ -14,4 +14,4 @@ For specific problems, please raise an issue in the repository.
 
 ### Email
 
-Should you want to reach out via email, **[support@salt-labs.tech](mailto:support@salt-labs.tech)**.
+Should you want to reach out via email, **[support@saltlabs.tech](mailto:support@saltlabs.tech)**.

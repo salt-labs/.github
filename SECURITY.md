@@ -5,15 +5,16 @@
 <!-- TOC -->
 
 - [Security Policy](#security-policy)
-    - [Table of Contents](#table-of-contents)
-    - [Reporting a Vulnerability](#reporting-a-vulnerability)
+  - [Table of Contents](#table-of-contents)
+  - [Overview](#overview)
+  - [Reporting a Vulnerability](#reporting-a-vulnerability)
 
 <!-- /TOC -->
 
 ## Overview
 
-Security information for the @Salt-Labs organization.
+Security information for the @salt-labs organization.
 
 ## Reporting a Vulnerability
 
-Please report any suspected security vulnerabilities to **[security@salt-labs.dev](mailto:security@salt-labs.dev)**.
+Please report any suspected security vulnerabilities to **[security@saltlabs.tech](mailto:security@saltlabs.tech)**.
