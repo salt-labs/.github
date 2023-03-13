@@ -122,7 +122,8 @@ jobs:
         run: |
           if [ -f "Dockerfile" ];
           then
-            echo '::set-output name=publish::TRUE'
+            #echo '::set-output name=publish::TRUE'
+            echo "publish=TRUE" >> $env:GITHUB_OUTPUT
           fi
 
       - id: app_or_lib
@@ -132,7 +133,8 @@ jobs:
           TYPE: ${{ env.TYPE }}
         run: |
           Write-Output "Project Type: $TYPE"
-          Write-Output "::set-output name=project_type::$TYPE"
+          #Write-Output "::set-output name=project_type::$TYPE"
+          Write-Output "project_type=$TYPE" >> $env:GITHUB_OUTPUT
 
     outputs:
       # Prep-Release
@@ -517,4 +519,3 @@ jobs:
           asset_path: ${{ needs.create_release.outputs.repo_name }}-${{ matrix.config.go_os}}-${{ matrix.config.go_arch }}.zip
           asset_name: ${{ needs.create_release.outputs.repo_name }}-${{ matrix.config.go_os}}-${{ matrix.config.go_arch }}.zip
           asset_content_type: application/zip
-

@@ -58,7 +58,8 @@ jobs:
           if [ -f "Cargo.toml" ];
           then
             echo "Cargo project detected"
-            echo '::set-output name=cargo_enabled::TRUE'
+            #echo '::set-output name=cargo_enabled::TRUE'
+            echo "cargo_enabled=TRUE" >> $GITHUB_OUTPUT
           else
             echo "No Cargo project was detected"
           fi

@@ -76,9 +76,11 @@ jobs:
           REPORTS=$(find reports/ -type f | wc -l)
           if [ "${REPORTS:-0}" -gt 0 ];
           then
-            echo '::set-output name=results::TRUE'
+            #echo '::set-output name=results::TRUE'
+            echo "results=TRUE" >> $GITHUB_OUTPUT
           else
-            echo '::set-output name=results::FALSE'
+            #echo '::set-output name=results::FALSE'
+            echo "results=FALSE" >> $GITHUB_OUTPUT
           fi
 
       - id: shiftleft_upload_html

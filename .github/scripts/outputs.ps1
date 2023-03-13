@@ -587,8 +587,13 @@ Begin {
 
             GitHub Actions outputs in the format as follows:
 
+            # Old Method
             "::set-output name=ENABLE_XXXXX::TRUE"
             "::set-output name=ENABLE_XXXXX::FALSE"
+
+            # New Method
+            "echo ENABLE_XXXXX=TRUE" >> $env:GITHUB_OUTPUT
+            "echo ENABLE_XXXXX=FALSE" >> $env:GITHUB_OUTPUT
 
         .EXAMPLE
 
@@ -711,7 +716,9 @@ Begin {
 
         End {
 
-            Write-Output "::set-output name=$OutputName::$DetectionResult"
+            #Write-Output "::set-output name=$OutputName::$DetectionResult"
+
+            Write-Output "$OutputName=$DetectionResult" | Add-Content $env:GITHUB_OUTPUT
 
         }
 
@@ -769,7 +776,8 @@ Process {
     if ( $NULL -eq ${ENV:PROJECT_TYPE} ) {
         Write-Log -Fatal -LogLevel "Error" -LogMessage "No project type was provided in the `$ENV:PROJECT_TYPE environment variable. This is a required. See the example Workflow for configuration."
     }
-    Write-Output "::set-output name=project_type::${ENV:PROJECT_TYPE}"
+    #Write-Output "::set-output name=project_type::${ENV:PROJECT_TYPE}"
+    Write-Output "project_type=${ENV:PROJECT_TYPE}" | Add-Content $env:GITHUB_OUTPUT
 
     # A defined list of support environment variable names
     $VARIABLES = @(
@@ -805,17 +813,20 @@ Process {
 
                 "TRUE" {
                     Write-Log -LogLevel "Debug" -LogMessage "$VARIABLE_NAME enabled"
-                    Write-Output "::set-output name=$OUTPUT_NAME::TRUE"
+                    #Write-Output "::set-output name=$OUTPUT_NAME::TRUE"
+                    Write-Output "$OUTPUT_NAME=TRUE" | Add-Content $env:GITHUB_OUTPUT
                 }
 
                 "FALSE" {
                     Write-Log -LogLevel "Debug" -LogMessage "$VARIABLE_NAME disabled"
-                    Write-Output "::set-output name=$OUTPUT_NAME::FALSE"
+                    #Write-Output "::set-output name=$OUTPUT_NAME::FALSE"#
+                    Write-Output "$OUTPUT_NAME=FALSE" | Add-Content $env:GITHUB_OUTPUT
                 }
 
                 Default {
                     Write-Log -LogLevel "Debug" -LogMessage "$VARIABLE_NAME had unknown value of $VARIABLE_VALUE. Defaulting to FALSE"
-                    Write-Output "::set-output name=$OUTPUT_NAME::FALSE"
+                    #Write-Output "::set-output name=$OUTPUT_NAME::FALSE"
+                    Write-Output "$OUTPUT_NAME=FALSE" | Add-Content $env:GITHUB_OUTPUT
                 }
 
             }

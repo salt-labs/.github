@@ -69,7 +69,8 @@ jobs:
         run: |
           if [ -f "${DOCKERFILE}" ];
           then
-            echo '::set-output name=dockerfile::TRUE'
+            #echo '::set-output name=dockerfile::TRUE'
+            echo "dockerfile=TRUE" >> $env:GITHUB_OUTPUT
           fi
 
     outputs:
