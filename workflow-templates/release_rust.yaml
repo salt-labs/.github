@@ -133,7 +133,8 @@ jobs:
         run: |
           if [ -f "Dockerfile" ];
           then
-            echo '::set-output name=publish::TRUE'
+            #echo '::set-output name=publish::TRUE'
+            echo "publish=TRUE" >> $GITHUB_OUTPUT
           fi
 
       - id: app_or_lib
@@ -143,7 +144,8 @@ jobs:
           TYPE: ${{ env.TYPE }}
         run: |
           Write-Output "Project Type: $TYPE"
-          Write-Output "::set-output name=project_type::$TYPE"
+          #Write-Output "::set-output name=project_type::$TYPE"
+          Write-Output "project_type=$TYPE" >> $env:GITHUB_OUTPUT
 
     outputs:
       # Project Type

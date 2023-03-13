@@ -37,7 +37,8 @@ jobs:
         run: |
           if [ -f "go.sum" ];
           then
-            echo '::set-output name=run_nancy::TRUE'
+            #echo '::set-output name=run_nancy::TRUE'
+            echo "run_nancy=TRUE" >> $env:GITHUB_OUTPUT
           else
             echo "No go.sum file present, Nancy will not be run."
           fi
@@ -48,4 +49,3 @@ jobs:
         uses: sonatype-nexus-community/nancy-github-action@v1
         with:
           target: go.sum
-
