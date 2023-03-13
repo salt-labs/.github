@@ -1,6 +1,6 @@
 {
-    "name": "Salt Labs Organization Workflow for X",
-    "description": "Salt Labs Organization Workflow for X",
+    "name": "GitHub Release Workflow",
+    "description": "Salt Labs Organization Workflow for GitHub Releases",
     "iconName": "salt-labs",
     "categories": [
         "Go",

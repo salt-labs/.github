@@ -5,9 +5,9 @@
 <!-- TOC -->
 
 - [Readme](#readme)
-    - [Table of Contents](#table-of-contents)
-    - [Overview](#overview)
-    - [Usage](#usage)
+  - [Table of Contents](#table-of-contents)
+  - [Overview](#overview)
+  - [Usage](#usage)
 
 <!-- /TOC -->
 

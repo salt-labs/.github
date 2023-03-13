@@ -1,21 +1,11 @@
 {
-    "name": "Salt Labs Organization Workflow for X",
-    "description": "Salt Labs Organization Workflow for X",
+    "name": "Pulumi Preview Workflow",
+    "description": "Salt Labs Organization Workflow for Pulumi preview",
     "iconName": "salt-labs",
     "categories": [
-        "Go",
-        "Rust",
-        "Docker",
-        "Shell",
-        "PowerShell",
-        "Releases"
+        "Go"
     ],
     "filePatterns": [
-        "^*.go$",
-        "^*.rs$",
-        "^Cargo.toml$",
-        "^Dockerfile*",
-        "^*.sh",
-        "*.ps1$"
+        "^*.go$"
     ]
 }

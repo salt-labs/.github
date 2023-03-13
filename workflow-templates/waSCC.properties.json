@@ -1,16 +1,15 @@
 
 {
-    "name": "Salt Labs Organization Workflow for waSCC",
+    "name": "WaSCC Workflow",
     "description": "Salt Labs Organization Workflow for wasCC",
     "iconName": "salt-labs",
     "categories": [
         "Rust",
         "WASM",
-        "waSCC",
+        "waSCC"
     ],
     "filePatterns": [
         "^*.rs$",
-        "^Cargo.toml$",
+        "^Cargo.toml$"
     ]
 }
-

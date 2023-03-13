@@ -1,6 +1,6 @@
 {
-    "name": "Salt Labs Organization Workflow for X",
-    "description": "Salt Labs Organization Workflow for X",
+    "name": "Validate Policies",
+    "description": "Salt Labs Organization Workflow for validating policies",
     "iconName": "salt-labs",
     "categories": [
         "Go",

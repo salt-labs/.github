@@ -1,6 +1,6 @@
 {
-    "name": "Salt Labs Organization Workflow for X",
-    "description": "Salt Labs Organization Workflow for X",
+    "name": "Trivy Workflow",
+    "description": "Salt Labs Organization Workflow for Trivy",
     "iconName": "salt-labs",
     "categories": [
         "Go",

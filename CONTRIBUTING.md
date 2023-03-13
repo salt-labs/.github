@@ -5,9 +5,9 @@
 <!-- TOC -->
 
 - [Contributing](#contributing)
-    - [Table of Contents](#table-of-contents)
-    - [Overview](#overview)
-    - [Tips](#tips)
+  - [Table of Contents](#table-of-contents)
+  - [Overview](#overview)
+  - [Tips](#tips)
 
 <!-- /TOC -->
 
